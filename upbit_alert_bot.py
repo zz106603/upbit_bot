@@ -93,7 +93,13 @@ def check_market():
             price_change = ((current_price - prev_price) / prev_price) * 100
             volume_change = current_volume / prev_volume if prev_volume > 0 else 0
 
-            logging.info(f"[{coin}] 가격: {current_price}원 / 변화율: {price_change:.2f}% / 거래량 x{volume_change:.1f}")
+            # logging.info(f"[{coin}] 가격: {current_price}원 / 변화율: {price_change:.2f}% / 거래량 x{volume_change:.1f}")
+
+            # 콘솔 색상 출력 추가 (터미널에서만 보임)
+            color = "\033[91m" if price_change >= 0 else "\033[94m"
+            reset = "\033[0m"
+            timestamp = datetime.now().strftime('%H:%M:%S')
+            print(f"{color}[{timestamp}] [{coin}] 변화율: {price_change:.2f}% / 거래량 x{volume_change:.2f}{reset}")
 
             if price_change >= PRICE_THRESHOLD_PERCENT and volume_change >= VOLUME_THRESHOLD_MULTIPLIER:
                 chart_url = f"https://upbit.com/exchange?code=CRIX.UPBIT.KRW-{coin}"
