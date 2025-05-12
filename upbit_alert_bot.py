@@ -49,23 +49,34 @@ COIN_NAMES = {
 def check_market():
     now = datetime.now().time()
     # 22:55 ~ 07:00 사이엔 실행 안 함
-    if now >= datetime.strptime("22:55", "%H:%M").time() and now <= datetime.strptime("07:00", "%H:%M").time():
+    if now >= datetime.strptime("22:55", "%H:%M").time() or now <= datetime.strptime("07:00", "%H:%M").time():
         return  # 새벽에는 감지 스킵
-    
-    url = f"https://api.upbit.com/v1/ticker?markets=" + ','.join([f'KRW-{coin}' for coin in COINS_FIXED])
-    response = requests.get(url).json()
 
-    for data in response:
-        coin = data['market'].split('-')[1]
-        current_price = data['trade_price']
-        current_volume = data['acc_trade_volume_24h']
+    for coin in COINS_FIXED:
+        try:
+            # 가격 및 거래량 정보 가져오기
+            url = f"https://api.upbit.com/v1/ticker?markets=KRW-{coin}"
+            res = requests.get(url)
+            res.raise_for_status()
+            data = res.json()[0]
+            current_price = data['trade_price']
 
-        prev_price = previous_data[coin]['price']
-        prev_volume = previous_data[coin]['volume']
+            # 캔들 거래량 가져오기
+            prev_volume, current_volume = get_hourly_volumes(coin)
+            if not prev_volume or not current_volume:
+                logging.debug(f"🔸 {coin} 캔들 거래량 부족 → 스킵")
+                continue
 
-        if prev_price and prev_volume:
-            price_change = ((current_price - prev_price) / prev_price) * 100
             volume_change = current_volume / prev_volume if prev_volume > 0 else 0
+
+            # 이전 가격과 비교
+            prev_price = previous_data[coin]['price']
+            if not prev_price:
+                previous_data[coin]['price'] = current_price
+                previous_data[coin]['volume'] = current_volume
+                continue
+
+            price_change = ((current_price - prev_price) / prev_price) * 100
 
             timestamp = datetime.now().strftime('%H:%M:%S')
             color = "\033[91m" if price_change >= 0 else "\033[94m"
@@ -84,8 +95,12 @@ def check_market():
                 bot.send_message(chat_id=CHAT_ID, text=message, parse_mode='Markdown')
                 logging.info(f"🚨 알림 전송됨: {coin} ({price_change:.2f}% 상승, x{volume_change:.1f} 거래량)")
 
-        previous_data[coin]['price'] = current_price
-        previous_data[coin]['volume'] = current_volume
+            # 상태 갱신
+            previous_data[coin]['price'] = current_price
+            previous_data[coin]['volume'] = current_volume
+
+        except Exception as e:
+            logging.error(f"❌ {coin} 실시간 감시 중 오류: {e}")
 
 # 업비트 전체 KRW 코인 조회회
 def get_all_krw_coins():
