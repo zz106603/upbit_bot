@@ -102,6 +102,8 @@ def check_market():
 
         except Exception as e:
             logging.error(f"❌ {coin} 실시간 감시 중 오류: {e}")
+        
+        time.sleep(0.15)  # 150ms 간격 → 초당 약 6~7회 호출, 안전
 
 # 업비트 전체 KRW 코인 조회회
 def get_all_krw_coins():
