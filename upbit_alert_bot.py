@@ -11,10 +11,11 @@ load_dotenv()
 # 설정 값 가져오기
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
-COINS = os.getenv("COINS").split(",")
-PRICE_THRESHOLD_PERCENT = float(os.getenv("PRICE_THRESHOLD_PERCENT"))
-VOLUME_THRESHOLD_MULTIPLIER = float(os.getenv("VOLUME_THRESHOLD_MULTIPLIER"))
-CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL"))
+
+COINS=["MEW","XRP","DOGE","MOVE","PUNDIX","LAYER","VIRTUAL","KAITO","BTC","ETH","ONDO"]
+PRICE_THRESHOLD_PERCENT=5
+VOLUME_THRESHOLD_MULTIPLIER=3
+CHECK_INTERVAL=60
 
 bot = Bot(token=TELEGRAM_TOKEN)
 previous_data = {coin: {'price': None, 'volume': None} for coin in COINS}
