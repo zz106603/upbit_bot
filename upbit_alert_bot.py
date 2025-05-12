@@ -45,10 +45,11 @@ COIN_NAMES = {
     "KAITO": "카이토", "BTC": "비트코인", "ETH": "이더리움", "ONDO": "온도파이낸스"
 }
 
+# 관심 코인에 대해서 +4% and 거래량 2배 이상 증가한 코인을 60초마다 검사 후 텔레그램 알림
 def check_market():
     now = datetime.now().time()
-    # 예: 01:00 ~ 06:00 사이엔 실행 안 함
-    if now >= datetime.strptime("01:00", "%H:%M").time() and now <= datetime.strptime("07:00", "%H:%M").time():
+    # 22:55 ~ 07:00 사이엔 실행 안 함
+    if now >= datetime.strptime("22:55", "%H:%M").time() and now <= datetime.strptime("07:00", "%H:%M").time():
         return  # 새벽에는 감지 스킵
     
     url = f"https://api.upbit.com/v1/ticker?markets=" + ','.join([f'KRW-{coin}' for coin in COINS_FIXED])
@@ -86,17 +87,29 @@ def check_market():
         previous_data[coin]['price'] = current_price
         previous_data[coin]['volume'] = current_volume
 
+# 업비트 전체 KRW 코인 조회회
 def get_all_krw_coins():
     url = "https://api.upbit.com/v1/market/all"
     response = requests.get(url).json()
     return [item['market'].split('-')[1] for item in response if item['market'].startswith("KRW-")]
 
 def get_candle_prices(coin, count=30):
+    """지정 코인의 최근 n개의 종가를 가져옴 (1시간봉 기준)"""
     url = f"https://api.upbit.com/v1/candles/minutes/60?market=KRW-{coin}&count={count}"
-    response = requests.get(url).json()
-    if not response or 'error' in response:
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+
+        # response가 리스트가 아니면 잘못된 응답
+        if not isinstance(data, list):
+            logging.warning(f"⚠️ {coin} 캔들 요청 실패: 예상과 다른 응답형식 → {data}")
+            return []
+
+        return [candle['trade_price'] for candle in reversed(data)]  # 최신 → 과거
+    except Exception as e:
+        logging.error(f"❌ {coin} 캔들 조회 실패: {e}")
         return []
-    return [candle['trade_price'] for candle in reversed(response)]
 
 def calculate_rsi(prices, period=14):
     if len(prices) < period + 1:
@@ -116,6 +129,23 @@ def calculate_rsi(prices, period=14):
     rs = avg_gain / avg_loss
     return round(100 - (100 / (1 + rs)), 2)
 
+def get_hourly_volumes(coin):
+    """
+    해당 코인의 최근 2개의 1시간봉 캔들 거래량 반환
+    [0] → 1시간 전, [1] → 현재 진행 중인 캔들
+    """
+    url = f"https://api.upbit.com/v1/candles/minutes/60?market=KRW-{coin}&count=2"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        if len(data) < 2:
+            return None, None
+        return data[1]['candle_acc_trade_volume'], data[0]['candle_acc_trade_volume']
+    except Exception as e:
+        logging.error(f"❌ {coin} 캔들 거래량 조회 실패: {e}")
+        return None, None
+
 def nightly_scan():
     logging.info("🌙 야간 예측 스캔 시작")
     COINS = get_all_krw_coins()
@@ -127,19 +157,32 @@ def nightly_scan():
     for data in response:
         coin = data['market'].split('-')[1]
         price = data['trade_price']
-        volume = data['acc_trade_volume_24h']
-        prev_volume = previous_data.get(coin, {}).get('volume')
-        if not prev_volume:
+
+        # 1시간 캔들 거래량 2개 가져오기 (이전 캔들, 현재 캔들)
+        prev_volume, current_volume = get_hourly_volumes(coin)
+        if not prev_volume or not current_volume:
+            logging.info(f"🔸 {coin} 캔들 거래량 부족 → 스킵")
             continue
 
-        volume_change = volume / prev_volume
+        volume_change = current_volume / prev_volume if prev_volume > 0 else 0
+
         prices = get_candle_prices(coin)
+        if not prices:
+            logging.info(f"🔸 {coin} 캔들 가격 없음 → 스킵")
+            continue
+
+        time.sleep(0.15)
         rsi = calculate_rsi(prices)
 
-        if rsi and 35 < rsi < 55 and volume_change > 1.5:
+        if rsi is not None:
+            logging.info(f"🔍 {coin} | RSI: {rsi} | 거래량 x{volume_change:.2f}")
+        else:
+            logging.info(f"🔸 {coin} RSI 계산 실패 → 스킵")
+
+        if 35 < rsi < 55 and volume_change > 1.5:
             night_candidates[coin] = {
                 'price': price,
-                'volume': volume,
+                'volume': current_volume,
                 'rsi': rsi
             }
             line = f"- {coin} | RSI: {rsi} | 거래량 x{volume_change:.2f}"
