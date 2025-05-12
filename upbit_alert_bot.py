@@ -6,6 +6,7 @@ import os
 from dotenv import load_dotenv
 import logging
 from datetime import datetime
+import csv
 
 # 로그 설정
 if not os.path.exists("upbit_logs"):
@@ -202,6 +203,7 @@ def nightly_scan():
             }
             line = f"- {coin} | RSI: {rsi} | 거래량 x{volume_change:.2f}"
             message_lines.append(line)
+            save_night_candidate_to_csv(coin, rsi, volume_change, price)
             logging.info(f"🕵️‍♂️ 후보 등록: {coin} | RSI: {rsi} | 거래량 x{volume_change:.2f}")
 
     if len(message_lines) > 1:
@@ -233,7 +235,26 @@ def morning_check():
                 f"[👉 차트 보기]({chart_url})"
             )
             bot.send_message(chat_id=CHAT_ID, text=message, parse_mode='Markdown')
+            save_morning_result_to_csv(coin, prev_info['price'], morning_price, rise)
             logging.info(f"☀️ 아침 알림 전송됨: {coin} +{rise:.2f}%")
+
+def save_night_candidate_to_csv(coin, rsi, volume_change, price):
+    filename = "upbit_logs/night_candidates.csv"
+    file_exists = os.path.isfile(filename)
+    with open(filename, mode='a', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(["date", "coin", "rsi", "volume_change", "price"])
+        writer.writerow([datetime.now().strftime('%Y-%m-%d'), coin, rsi, volume_change, price])
+
+def save_morning_result_to_csv(coin, prev_price, morning_price, rise):
+    filename = "upbit_logs/morning_results.csv"
+    file_exists = os.path.isfile(filename)
+    with open(filename, mode='a', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(["date", "coin", "night_price", "morning_price", "rise_percent"])
+        writer.writerow([datetime.now().strftime('%Y-%m-%d'), coin, prev_price, morning_price, f"{rise:.2f}"])
 
 # 스케줄 등록
 schedule.every(CHECK_INTERVAL).seconds.do(check_market)
