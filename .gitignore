@@ -174,3 +174,5 @@ cython_debug/
 .pypirc
 
 upbit_logs
+
+.idea/
