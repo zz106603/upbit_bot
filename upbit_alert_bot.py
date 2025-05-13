@@ -163,6 +163,26 @@ def get_hourly_volumes(coin):
     except Exception as e:
         logging.error(f"❌ {coin} 캔들 거래량 조회 실패: {e}")
         return None, None
+    
+def get_volume_trend(coin, hours=6):
+    """
+    최근 'hours' 시간 동안의 평균 거래량과 현재 캔들 거래량을 비교
+    return: (avg_volume, current_volume)
+    """
+    url = f"https://api.upbit.com/v1/candles/minutes/60?market=KRW-{coin}&count={hours + 1}"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        if len(data) < hours + 1:
+            return None, None
+        current_volume = data[0]['candle_acc_trade_volume']
+        past_volumes = [d['candle_acc_trade_volume'] for d in data[1:]]
+        avg_volume = sum(past_volumes) / len(past_volumes)
+        return avg_volume, current_volume
+    except Exception as e:
+        logging.error(f"❌ {coin} 거래량 추이 조회 실패: {e}")
+        return None, None
 
 def nightly_scan():
     logging.info("🌙 야간 예측 스캔 시작")
@@ -176,13 +196,12 @@ def nightly_scan():
         coin = data['market'].split('-')[1]
         price = data['trade_price']
 
-        # 1시간 캔들 거래량 2개 가져오기 (이전 캔들, 현재 캔들)
-        prev_volume, current_volume = get_hourly_volumes(coin)
-        if not prev_volume or not current_volume:
-            logging.info(f"🔸 {coin} 캔들 거래량 부족 → 스킵")
+        avg_volume, current_volume = get_volume_trend(coin, hours=6)
+        if not avg_volume or not current_volume:
+            logging.info(f"🔸 {coin} 거래량 데이터 부족 → 스킵")
             continue
 
-        volume_change = current_volume / prev_volume if prev_volume > 0 else 0
+        volume_change = current_volume / avg_volume if avg_volume > 0 else 0
 
         prices = get_candle_prices(coin)
         if not prices:
