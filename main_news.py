@@ -6,7 +6,7 @@ import hashlib
 import json
 import schedule
 import time
-from utils.telegram_helper import escape
+from utils.telegram_helper import escape, escape_url
 from utils.upbit import get_all_krw_symbols, get_price_change_percent
 from utils.translate import translate_to_korean
 
@@ -21,7 +21,7 @@ bot = Bot(token=TELEGRAM_TOKEN)
 CACHE_FILE = "crypto_news_sent.json"
 
 # 스케쥴링 시간(분)
-NEWS_TIME = 30
+NEWS_TIME = 1
 
 # 최초 1회
 ALL_SYMBOLS = get_all_krw_symbols()
@@ -57,7 +57,7 @@ def extract_symbols_from_title(title: str, all_symbols):
 def send_batched_news_alert():
     sent_cache = load_sent_cache()
     new_sent = False
-    message_lines = ["\ud83d\udcf1 중요 뉴스 요약 (30분 주기)\n"]
+    message_lines = ["중요 뉴스 요약 (3분 주기)\n"]
 
     for idx, news in enumerate(fetch_crypto_panic_news()[:10], start=1):
         title = news['title']
@@ -70,25 +70,25 @@ def send_batched_news_alert():
         translated = translate_to_korean(title)
         safe_title = escape(title)
         safe_ko = escape(translated)
-        safe_url = escape(url)
-
-        entry = f"{idx}. *{safe_title}*\n\U0001F238 {safe_ko}"
+        
+        entry = f"{idx}. {safe_title}\n🈸 {safe_ko}"
 
         related_coins = extract_symbols_from_title(title, ALL_SYMBOLS)
         for coin in related_coins:
             change = get_price_change_percent(coin)
             if change is not None and change >= 2:
                 change_msg = escape(f"{coin} +{change}%")
-                entry += f"\n\U0001F4C8 {change_msg}"
+                entry += f"\n📈 {change_msg}"
 
-        entry += f"\n\U0001F517 {safe_url}\n"
+        entry += f"\n🔗 {escape(url)}\n"
         message_lines.append(entry)
         sent_cache.add(news_id)
         new_sent = True
         time.sleep(0.2)
 
     if new_sent:
-        bot.send_message(chat_id=CHAT_ID, text="\n".join(message_lines), parse_mode="MarkdownV2")
+        print("\n".join(message_lines))
+        bot.send_message(chat_id=CHAT_ID, text="\n".join(message_lines))
         save_sent_cache(sent_cache)
         print("✅ 뉴스 요약 알림 전송됨")
     else:
