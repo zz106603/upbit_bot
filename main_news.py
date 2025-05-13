@@ -21,7 +21,7 @@ bot = Bot(token=TELEGRAM_TOKEN)
 CACHE_FILE = "crypto_news_sent.json"
 
 # 스케쥴링 시간(분)
-NEWS_TIME = 1
+NEWS_TIME = 30
 
 # 최초 1회
 ALL_SYMBOLS = get_all_krw_symbols()
