@@ -10,7 +10,6 @@ import csv
 from utils.upbit import (
     get_all_krw_symbols,
     get_candle_prices,
-    get_minute_candles,
     get_hourly_volumes,
     get_volume_trend
 )
@@ -130,65 +129,6 @@ def check_market():
             logging.error(f"❌ {coin} 실시간 감시 중 오류: {e}")
 
         time.sleep(0.2)  # 너무 빠르게 거래량 요청하지 않도록 약간 유지
-
-# 실시간 시장 감시 (민감 버전): 최근 3분 내 저점 대비 3% 이상 상승 + 거래량 1.5배 이상
-def check_market_sensitive():
-    now = datetime.now().time()
-    if now >= datetime.strptime(STOP_START_TIME, "%H:%M").time() or now <= datetime.strptime(STOP_END_TIME, "%H:%M").time():
-        return
-
-    try:
-        url = f"https://api.upbit.com/v1/ticker?markets=" + ",".join([f"KRW-{c}" for c in COINS_FIXED])
-        res = requests.get(url)
-        res.raise_for_status()
-        ticker_data = {item['market'].split('-')[1]: item for item in res.json()}
-    except Exception as e:
-        logging.error(f"❌ 티커 전체 조회 실패 (민감 버전): {e}")
-        return
-
-    for coin in COINS_FIXED:
-        try:
-            data = ticker_data.get(coin)
-            if not data:
-                continue
-
-            current_price = data['trade_price']
-
-            # 🔍 1분봉 3개 → 저점 기준 가격 변동률 계산
-            candles = get_minute_candles(coin, count=3)
-            if not candles:
-                continue
-
-            recent_lows = [candle['low_price'] for candle in candles]
-            min_price = min(recent_lows)
-            price_change = ((current_price - min_price) / min_price) * 100
-
-            # 🔍 거래량 변화율 확인 (1시간 기준)
-            prev_volume, current_volume = get_hourly_volumes(coin)
-            if not prev_volume or not current_volume:
-                logging.debug(f"🔸 {coin} 거래량 부족 → 스킵")
-                continue
-
-            volume_change = current_volume / prev_volume if prev_volume > 0 else 0
-
-            timestamp = datetime.now().strftime('%H:%M:%S')
-            logging.info(f"[민감 {timestamp}] [{coin}] 저점대비 변화율: {price_change:.2f}% / 거래량 x{volume_change:.2f}")
-
-            if price_change >= 3.0 and volume_change >= 1.5:
-                chart_url = f"https://upbit.com/exchange?code=CRIX.UPBIT.KRW-{coin}"
-                name = COIN_NAMES.get(coin, coin)
-                message = (
-                    f"🚨 [민감] [{name}] {coin} 급등 감지!\n"
-                    f"가격: {current_price}원 ({price_change:.2f}%↑)\n"
-                    f"거래량: {volume_change:.1f}배 증가\n"
-                    f"[👉 차트 보기]({chart_url})"
-                )
-                bot.send_message(chat_id=CHAT_ID, text=message, parse_mode='Markdown')
-                logging.info(f"🚨 민감 알림 전송됨: {coin} (+{price_change:.2f}%, x{volume_change:.1f})")
-
-        except Exception as e:
-            logging.error(f"❌ {coin} 민감 감시 오류: {e}")
-        time.sleep(0.2)
 
 
 # 야간 예측 스캔: RSI 및 거래량 변화를 바탕으로 후보 선정
@@ -311,7 +251,6 @@ def save_morning_result_to_csv(coin, prev_price, morning_price, rise):
 
 # 스케줄 등록
 schedule.every(CHECK_INTERVAL).seconds.do(check_market)
-schedule.every(CHECK_INTERVAL).seconds.do(check_market_sensitive)
 schedule.every().day.at(NIGHT_TIME).do(nightly_scan)
 schedule.every().day.at(MORNING_TIME).do(morning_check)
 

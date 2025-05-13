@@ -1,4 +1,5 @@
 import requests
+import time
 
 # 전체 KRW 마켓 코인 심볼 로드
 def get_all_krw_symbols():
@@ -15,6 +16,7 @@ def get_all_krw_symbols():
 def get_hourly_volumes(coin):
     url = f"https://api.upbit.com/v1/candles/minutes/60?market=KRW-{coin}&count=2"
     try:
+        time.sleep(0.5)
         res = requests.get(url)
         res.raise_for_status()
         data = res.json()
@@ -75,6 +77,24 @@ def get_candle_prices(coin, count=30):
     except Exception as e:
         print(f"❌ {coin} 캔들 조회 실패: {e}")
         return []
+    
+# 지정 코인의 최근 n개의 1분봉 데이터를 가져옴 (가격: 고/저/종가)
+def get_minute_candles(coin, count=3):
+    url = f"https://api.upbit.com/v1/candles/minutes/1?market=KRW-{coin}&count={count}"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+
+        if not isinstance(data, list):
+            print(f"⚠️ {coin} 1분봉 요청 실패: 예상과 다른 응답 → {data}")
+            return []
+
+        return list(reversed(data))  # 최신순 → 과거순으로 정렬
+    except Exception as e:
+        print(f"❌ {coin} 1분봉 조회 실패: {e}")
+        return []
+
     
 # 일봉 캔들 데이터 가져오기
 def get_daily_candles(coin, count=30):

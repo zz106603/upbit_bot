@@ -61,7 +61,7 @@ def send_batched_news_alert():
 
     for idx, news in enumerate(fetch_crypto_panic_news()[:10], start=1):
         title = news['title']
-        news_id = hashlib.md5(title.encode("utf-8")).hexdigest()
+        news_id = hashlib.md5((title + url).encode("utf-8")).hexdigest()
         if news_id in sent_cache:
             continue
 
