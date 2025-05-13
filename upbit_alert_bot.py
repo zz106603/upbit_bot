@@ -216,10 +216,20 @@ def nightly_scan():
 
 def morning_check():
     logging.info("🌅 아침 후보 검증 시작")
+
+    # JSON에서 불러오기 (옵션)
+    # load_night_candidates_from_json()
+
     if not night_candidates:
+        bot.send_message(chat_id=CHAT_ID, text="🌅 아침 후보가 없습니다.")
         return
+
     url = f"https://api.upbit.com/v1/ticker?markets=" + ','.join([f'KRW-{coin}' for coin in night_candidates])
     response = requests.get(url).json()
+
+    message_lines = ["🌅 [전날 후보 아침 결과]"]
+    found_risers = False
+
     for data in response:
         coin = data['market'].split('-')[1]
         morning_price = data['trade_price']
@@ -227,18 +237,33 @@ def morning_check():
         if not prev_info:
             continue
         rise = ((morning_price - prev_info['price']) / prev_info['price']) * 100
+        name = COIN_NAMES.get(coin, coin)
+        chart_url = f"https://upbit.com/exchange?code=CRIX.UPBIT.KRW-{coin}"
+        line = (
+            f"- [{name}] {coin} | 밤: {int(prev_info['price'])} → 아침: {int(morning_price)}원 | "
+            f"수익률: {rise:.2f}%"
+        )
+        message_lines.append(line)
+
+        # 수익률 5% 이상인 경우 별도 알림 + csv 기록
         if rise >= 5:
-            name = COIN_NAMES.get(coin, coin)
-            chart_url = f"https://upbit.com/exchange?code=CRIX.UPBIT.KRW-{coin}"
-            message = (
+            alert = (
                 f"☀️ [{name}] {coin} 새벽 급등!\n"
                 f"밤 가격: {int(prev_info['price'])}원 → 아침 가격: {int(morning_price)}원\n"
                 f"수익률: +{rise:.2f}%\n"
                 f"[👉 차트 보기]({chart_url})"
             )
-            bot.send_message(chat_id=CHAT_ID, text=message, parse_mode='Markdown')
+            bot.send_message(chat_id=CHAT_ID, text=alert, parse_mode='Markdown')
             save_morning_result_to_csv(coin, prev_info['price'], morning_price, rise)
             logging.info(f"☀️ 아침 알림 전송됨: {coin} +{rise:.2f}%")
+            found_risers = True
+
+    # 요약 결과 전송
+    if len(message_lines) > 1:
+        bot.send_message(chat_id=CHAT_ID, text="\n".join(message_lines))
+    elif not found_risers:
+        bot.send_message(chat_id=CHAT_ID, text="🌅 아침 후보는 있었지만 변화가 없었습니다.")
+
 
 def save_night_candidate_to_csv(coin, rsi, volume_change, price):
     filename = "upbit_logs/night_candidates.csv"
