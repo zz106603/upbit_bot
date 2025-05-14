@@ -28,6 +28,7 @@ def calculate_macd(prices):
         return None, None
     ema12 = ema(prices, 12)
     ema26 = ema(prices, 26)
-    macd_line = [a - b for a, b in zip(ema12[-len(ema26):], ema26)]
+    min_len = min(len(ema12), len(ema26))
+    macd_line = [a - b for a, b in zip(ema12[-min_len:], ema26[-min_len:])]
     signal_line = ema(macd_line, 9)
     return macd_line[-1], signal_line[-1]

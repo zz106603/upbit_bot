@@ -19,8 +19,8 @@ SWING_LOG = "upbit_logs/swing_candidates.csv"
 POSITION_LOG = "upbit_logs/swing_positions.csv"
 
 # 스윙 시간
-SWING_SCAN_TIME = "22:30"
-SWING_POSITION_TIME = "09:00"
+SWING_SCAN_TIME = "09:05"
+SWING_POSITION_TIME = "09:07"
 ANALYZE_POSITION_TIME = "09:10"
 
 # 스윙 후보 저장
@@ -128,9 +128,14 @@ def swing_scan():
     found = False
     strong_found = False
 
+    # 전날 후보 코인
     prev_day_set = load_previous_candidates()
 
+    print(f"전체 코인: {symbols}")
+    print(f"전날 후보 코인: {prev_day_set}")
+
     for coin in symbols:
+        # 일봉 캔들 데이터
         candles = get_daily_candles(coin)
         if len(candles) < 30:
             continue
@@ -142,6 +147,11 @@ def swing_scan():
         rsi = calculate_rsi(closes)
         macd, signal = calculate_macd(closes)
         vol_ratio = volumes[-1] / (sum(volumes[:-1]) / len(volumes[:-1])) if len(volumes) > 1 else 1
+
+        if rsi is not None and macd is not None and signal is not None:
+            print(f"[{coin}] RSI: {rsi:.2f}, MACD: {macd:.4f}, SIG: {signal:.4f}, VolRatio: {vol_ratio:.2f}")
+        else:
+            print(f"[{coin}] ❌ RSI/MACD 계산 실패 → 건너뜀")
 
         if rsi and macd and signal and rsi < 45 and macd > signal and vol_ratio > 1.5:
             found = True
@@ -170,7 +180,7 @@ schedule.every().day.at(SWING_SCAN_TIME).do(swing_scan)
 schedule.every().day.at(SWING_POSITION_TIME).do(update_swing_positions)
 schedule.every().day.at(ANALYZE_POSITION_TIME).do(analyze_completed_positions)
 
-print("🟢 스윙 봇 실행됨 (스캔: 22:30 / 추적: 09:00 / 분석: 09:10)")
+print("🟢 스윙 봇 실행됨 (스캔: 09:05 / 추적: 09:07 / 분석: 09:10)")
 while True:
     schedule.run_pending()
     time.sleep(1)

@@ -97,7 +97,7 @@ def get_minute_candles(coin, count=3):
 
     
 # 일봉 캔들 데이터 가져오기
-def get_daily_candles(coin, count=30):
+def get_daily_candles(coin, count=50):
     url = f"https://api.upbit.com/v1/candles/days?market=KRW-{coin}&count={count}"
     try:
         res = requests.get(url)
