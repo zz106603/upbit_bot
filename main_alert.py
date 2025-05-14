@@ -270,7 +270,9 @@ def morning_check():
         )
         message_lines.append(line)
 
-        # 수익률 5% 이상인 경우 별도 알림 + csv 기록
+        # csv 파일에 저장
+        save_morning_result_to_csv(coin, prev_info['price'], morning_price, rise)
+        # 수익률 5% 이상인 경우 별도 알림
         if rise >= 5:
             alert = (
                 f"☀️ [{name}] {coin} 새벽 급등!\n"
@@ -279,7 +281,7 @@ def morning_check():
                 f"[👉 차트 보기]({chart_url})"
             )
             bot.send_message(chat_id=CHAT_ID, text=alert, parse_mode='Markdown')
-            save_morning_result_to_csv(coin, prev_info['price'], morning_price, rise)
+            
             logging.info(f"☀️ 아침 알림 전송됨: {coin} +{rise:.2f}%")
             found_risers = True
 
@@ -291,7 +293,13 @@ def morning_check():
 
 # 야간 후보 데이터를 CSV 파일에 저장
 def save_night_candidate_to_csv(coin, rsi, volume_change, price):
-    filename = "upbit_logs/night_candidates.csv"
+    today = datetime.now().strftime('%Y-%m-%d')
+    log_dir = "upbit_logs"
+    filename = f"{log_dir}/night_candidates_{today}.csv"
+
+    # 디렉토리 없으면 생성
+    os.makedirs(log_dir, exist_ok=True)
+
     file_exists = os.path.isfile(filename)
     with open(filename, mode='a', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
@@ -301,7 +309,13 @@ def save_night_candidate_to_csv(coin, rsi, volume_change, price):
 
 # 아침 결과 데이터를 CSV 파일에 저장
 def save_morning_result_to_csv(coin, prev_price, morning_price, rise):
-    filename = "upbit_logs/morning_results.csv"
+    today = datetime.now().strftime('%Y-%m-%d')
+    log_dir = "upbit_logs"
+    filename = f"{log_dir}/morning_results_{today}.csv"
+
+    # 디렉토리 없으면 생성
+    os.makedirs(log_dir, exist_ok=True)
+
     file_exists = os.path.isfile(filename)
     with open(filename, mode='a', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
