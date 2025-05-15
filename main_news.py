@@ -21,7 +21,7 @@ bot = Bot(token=TELEGRAM_TOKEN)
 CACHE_FILE = "crypto_news_sent.json"
 
 # 스케쥴링 시간(분)
-NEWS_TIME = 30
+NEWS_TIME = 2
 
 # 최초 1회
 ALL_SYMBOLS = get_all_krw_symbols()
@@ -71,16 +71,16 @@ def send_batched_news_alert():
         safe_title = escape(title)
         safe_ko = escape(translated)
         
-        entry = f"{idx}. {safe_title}\n🈸 {safe_ko}"
+        entry = f"{idx}. {safe_title}\n {safe_ko}"
 
         related_coins = extract_symbols_from_title(title, ALL_SYMBOLS)
         for coin in related_coins:
             change = get_price_change_percent(coin)
             if change is not None and change >= 2:
-                change_msg = escape(f"{coin} +{change}%")
-                entry += f"\n📈 {change_msg}"
+                entry += f"\n📈 {coin} +{change}%"
 
-        entry += f"\n🔗 {escape(url)}\n"
+
+        entry += f"\n🔗 {url}\n"
         message_lines.append(entry)
         sent_cache.add(news_id)
         new_sent = True
