@@ -19,13 +19,9 @@ SWING_LOG = "upbit_logs/swing_candidates.csv"
 POSITION_LOG = "upbit_logs/swing_positions.csv"
 
 # 스윙 시간 설정
-# SWING_SCAN_TIME = "09:05"
-# SWING_POSITION_TIME = "09:07"
-# ANALYZE_POSITION_TIME = "09:10"
-
-SWING_SCAN_TIME = "15:08"
-SWING_POSITION_TIME = "15:10"
-ANALYZE_POSITION_TIME = "15:13"
+SWING_SCAN_TIME = "09:05"
+SWING_POSITION_TIME = "09:07"
+ANALYZE_POSITION_TIME = "09:10"
 
 # 스윙 후보 저장 함수
 # 조건을 만족하는 코인을 파일로 기록함
@@ -170,6 +166,9 @@ def swing_scan():
             if coin in prev_day_set:
                 strong_found = True
                 strong_lines.append(f"✅ {coin} → 이틀 연속 조건 만족")
+        else:
+            print(f"[{coin}] 조건 불충족 → 스킵 (RSI: {rsi:.2f}, MACD: {macd:.4f}, Signal: {signal:.4f}, Vol: {vol_ratio:.2f}, DD: {drawdown:.2f})")
+
 
         time.sleep(0.2)
 
