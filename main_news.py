@@ -21,7 +21,7 @@ bot = Bot(token=TELEGRAM_TOKEN)
 CACHE_FILE = "crypto_news_sent.json"
 
 # 스케쥴링 시간(분)
-NEWS_TIME = 30
+NEWS_TIME = 2
 
 # 최초 1회
 ALL_SYMBOLS = get_all_krw_symbols()
@@ -49,15 +49,15 @@ def fetch_crypto_panic_news():
         print(f"❌ 뉴스 가져오기 실패: {e}")
         return []
 
-# 뉴스 제목에서 관련 코인 심볼 자동 추출
-def extract_symbols_from_title(title: str, all_symbols):
-    return [symbol for symbol in all_symbols if symbol.lower() in title.lower()]
+# CryptoPanic API 응답에서 코인 심볼 저장
+def extract_symbols_from_news(news):
+    return [c["code"] for c in news.get("currencies", [])]
 
 # 새 뉴스 감지 → 번역/분석 → 텔레그램으로 하나로 전송
 def send_batched_news_alert():
     sent_cache = load_sent_cache()
     new_sent = False
-    message_lines = ["중요 뉴스 요약 (3분 주기)\n"]
+    message_lines = ["중요 뉴스 요약\n"]
 
     for idx, news in enumerate(fetch_crypto_panic_news()[:10], start=1):
         title = news['title']
@@ -73,7 +73,7 @@ def send_batched_news_alert():
         
         entry = f"{idx}. {safe_title}\n {safe_ko}"
 
-        related_coins = extract_symbols_from_title(title, ALL_SYMBOLS)
+        related_coins = extract_symbols_from_news(news)
         for coin in related_coins:
             change = get_price_change_percent(coin)
             if change is not None and change >= 2:

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from telegram import Bot
 from dotenv import load_dotenv
 from utils.upbit import get_all_krw_symbols, get_daily_candles
-from utils.indicators import calculate_rsi, calculate_macd
+from utils.indicators import calculate_rsi, calculate_macd, calculate_ma, calculate_volatility_ratio, calculate_drawdown
 
 # 환경변수 로드
 load_dotenv()
@@ -18,12 +18,17 @@ bot = Bot(token=TELEGRAM_TOKEN)
 SWING_LOG = "upbit_logs/swing_candidates.csv"
 POSITION_LOG = "upbit_logs/swing_positions.csv"
 
-# 스윙 시간
-SWING_SCAN_TIME = "09:05"
-SWING_POSITION_TIME = "09:07"
-ANALYZE_POSITION_TIME = "09:10"
+# 스윙 시간 설정
+# SWING_SCAN_TIME = "09:05"
+# SWING_POSITION_TIME = "09:07"
+# ANALYZE_POSITION_TIME = "09:10"
 
-# 스윙 후보 저장
+SWING_SCAN_TIME = "15:08"
+SWING_POSITION_TIME = "15:10"
+ANALYZE_POSITION_TIME = "15:13"
+
+# 스윙 후보 저장 함수
+# 조건을 만족하는 코인을 파일로 기록함
 def save_swing_candidate(coin, rsi, macd, signal, vol_ratio, price):
     if not os.path.exists("upbit_logs"):
         os.makedirs("upbit_logs")
@@ -34,7 +39,8 @@ def save_swing_candidate(coin, rsi, macd, signal, vol_ratio, price):
             writer.writerow(["date", "coin", "rsi", "macd", "signal", "vol_ratio", "price"])
         writer.writerow([datetime.now().strftime('%Y-%m-%d'), coin, rsi, macd, signal, vol_ratio, price])
 
-# 스윙 포지션 저장
+# 스윙 포지션 저장 함수
+# 매수 포지션을 날짜별로 저장하고 향후 추적
 def save_swing_position(coin, entry_price):
     file_exists = os.path.isfile(POSITION_LOG)
     with open(POSITION_LOG, mode='a', newline='', encoding='utf-8') as f:
@@ -43,7 +49,8 @@ def save_swing_position(coin, entry_price):
             writer.writerow(["date", "coin", "entry_price"] + [f"D+{i}" for i in range(1, 8)])
         writer.writerow([datetime.now().strftime('%Y-%m-%d'), coin, entry_price] + ["" for _ in range(7)])
 
-# 이전 후보 불러오기
+# 전날 후보 불러오기 함수
+# 연속 조건 확인에 사용됨
 def load_previous_candidates():
     if not os.path.exists(SWING_LOG):
         return set()
@@ -56,7 +63,8 @@ def load_previous_candidates():
                 candidates.add(row['coin'])
     return candidates
 
-# 스윙 포지션 업데이트
+# 포지션 업데이트 함수
+# 매일 현재가를 포지션에 기록
 def update_swing_positions():
     if not os.path.exists(POSITION_LOG):
         return
@@ -85,7 +93,8 @@ def update_swing_positions():
         writer.writerow(headers)
         writer.writerows(updated_rows)
 
-# 완료된 포지션 분석
+# 7일간 수익 분석 함수
+# 스윙 종료 후 성과 요약 메시지를 전송
 def analyze_completed_positions():
     if not os.path.exists(POSITION_LOG):
         return
@@ -94,7 +103,7 @@ def analyze_completed_positions():
         reader = csv.reader(f)
         headers = next(reader)
         for row in reader:
-            if all(row[3:10]):  # D+1 to D+7 모두 채워졌는지 확인
+            if all(row[3:10]):
                 coin = row[1]
                 entry_price = float(row[2])
                 prices = list(map(float, row[3:10]))
@@ -119,7 +128,8 @@ def analyze_completed_positions():
         writer.writerow(headers)
         writer.writerows(rows_to_keep)
 
-# 스윙 스캔 실행
+# 스윙 스캔 함수
+# 지표 기반 조건 만족 시 추천 리스트에 추가
 def swing_scan():
     print("\n📈 스윙 스캔 시작")
     symbols = get_all_krw_symbols()
@@ -127,15 +137,9 @@ def swing_scan():
     strong_lines = ["🔥 [이틀 연속 스윙 조건 만족]"]
     found = False
     strong_found = False
-
-    # 전날 후보 코인
     prev_day_set = load_previous_candidates()
 
-    print(f"전체 코인: {symbols}")
-    print(f"전날 후보 코인: {prev_day_set}")
-
     for coin in symbols:
-        # 일봉 캔들 데이터
         candles = get_daily_candles(coin)
         if len(candles) < 30:
             continue
@@ -146,18 +150,20 @@ def swing_scan():
 
         rsi = calculate_rsi(closes)
         macd, signal = calculate_macd(closes)
-        vol_ratio = volumes[-1] / (sum(volumes[:-1]) / len(volumes[:-1])) if len(volumes) > 1 else 1
+        ma20 = calculate_ma(closes, 20)
+        vol_ratio = calculate_volatility_ratio(volumes)
+        drawdown = calculate_drawdown(closes)
 
-        if rsi is not None and macd is not None and signal is not None:
-            print(f"[{coin}] RSI: {rsi:.2f}, MACD: {macd:.4f}, SIG: {signal:.4f}, VolRatio: {vol_ratio:.2f}")
-        else:
-            print(f"[{coin}] ❌ RSI/MACD 계산 실패 → 건너뜀")
+        if rsi is None or macd is None or signal is None or ma20 is None:
+            print(f"[{coin}] ❌ 지표 계산 실패 → 건너뜀")
+            continue
 
-        if rsi and macd and signal and rsi < 45 and macd > signal and vol_ratio > 1.5:
+        # 조건: RSI < 45, MACD > Signal, 거래량 급등, MA20 상회, 낙폭 -5% 이상
+        if rsi < 45 and macd > signal and vol_ratio > 1.5 and current_price > ma20 and drawdown <= -5:
             found = True
             save_swing_candidate(coin, rsi, macd, signal, vol_ratio, current_price)
             save_swing_position(coin, current_price)
-            line = f"- {coin} | RSI: {rsi} | MACD: {macd:.4f} > SIG: {signal:.4f} | 거래량 x{vol_ratio:.2f}"
+            line = f"- {coin} | RSI: {rsi:.2f} | MACD: {macd:.4f} > SIG: {signal:.4f} | 거래량 x{vol_ratio:.2f} | 낙폭: {drawdown:.2f}%"
             message_lines.append(line)
             print(f"✅ 후보: {line}")
 
@@ -175,7 +181,7 @@ def swing_scan():
     if strong_found:
         bot.send_message(chat_id=CHAT_ID, text="\n".join(strong_lines))
 
-# 매일 밤 22:30 스윙 스캔, 매일 오전 09:00 수익률 추적 및 분석
+# 스케줄 등록
 schedule.every().day.at(SWING_SCAN_TIME).do(swing_scan)
 schedule.every().day.at(SWING_POSITION_TIME).do(update_swing_positions)
 schedule.every().day.at(ANALYZE_POSITION_TIME).do(analyze_completed_positions)
@@ -184,4 +190,3 @@ print("🟢 스윙 봇 실행됨 (스캔: 09:05 / 추적: 09:07 / 분석: 09:10)
 while True:
     schedule.run_pending()
     time.sleep(1)
-

@@ -1,3 +1,5 @@
+import numpy as np
+
 # 주어진 가격 데이터로 RSI 계산
 def calculate_rsi(prices, period=14):
     if len(prices) < period + 1:
@@ -32,3 +34,26 @@ def calculate_macd(prices):
     macd_line = [a - b for a, b in zip(ema12[-min_len:], ema26[-min_len:])]
     signal_line = ema(macd_line, 9)
     return macd_line[-1], signal_line[-1]
+
+# 이동 평균 (MA) 계산 함수
+def calculate_ma(closes, period=20):
+    if len(closes) < period:
+        return None
+    return sum(closes[-period:]) / period
+
+# 이상 거래량 비율 계산 함수
+def calculate_volatility_ratio(volumes):
+    if len(volumes) < 2:
+        return 1.0
+    avg = np.mean(volumes[:-1])
+    std = np.std(volumes[:-1])
+    current = volumes[-1]
+    return current / (avg + std) if (avg + std) > 0 else 1.0
+
+# 최근 N일 고점 대비 낙폭 계산 함수
+def calculate_drawdown(closes, window=7):
+    if len(closes) < window:
+        return 0.0
+    max_price = max(closes[-window:])
+    current_price = closes[-1]
+    return round((current_price - max_price) / max_price * 100, 2)
