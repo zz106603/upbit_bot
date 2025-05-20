@@ -2,9 +2,6 @@ from telegram.utils.helpers import escape_markdown
 import re
 from urllib.parse import quote
 
-# def escape(text):
-#     return escape_markdown(text, version=2)
-
 def escape(text: str) -> str:
     # Telegram MarkdownV2 특수문자 전체 이스케이프
     escape_chars = r'\_*[]()~`>#+-=|{}.!'
