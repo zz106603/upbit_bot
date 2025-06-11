@@ -17,11 +17,13 @@ from utils.upbit import (
 from utils.indicators import calculate_rsi
 
 # 로그 설정
-if not os.path.exists("upbit_logs"):
-    os.makedirs("upbit_logs")
+log_dir = os.path.join(os.getcwd(), "upbit_logs")
+os.makedirs(log_dir, exist_ok=True)
 
 today = datetime.now().strftime('%Y-%m-%d')
-log_file_path = f"upbit_logs/log_{today}.txt"
+log_file_path = os.path.join(log_dir, f"log_{today}.txt")
+
+import sys
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,7 +31,7 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S',
     handlers=[
         logging.FileHandler(log_file_path, encoding='utf-8'),
-        logging.StreamHandler()
+        logging.StreamHandler(sys.stdout)
     ]
 )
 
@@ -79,6 +81,7 @@ def check_market():
 
     except Exception as e:
         logging.error(f"❌ 티커 전체 조회 실패: {e}")
+        print(f"❌ 티커 전체 조회 실패: {e}")
         return
 
     for coin in COINS_FIXED:
@@ -93,6 +96,7 @@ def check_market():
             prev_volume, current_volume = get_hourly_volumes(coin)
             if not prev_volume or not current_volume:
                 logging.debug(f"🔸 {coin} 캔들 거래량 부족 → 스킵")
+                print(f"🔸 {coin} 캔들 거래량 부족 → 스킵")
                 continue
 
             volume_change = current_volume / prev_volume if prev_volume > 0 else 0
@@ -109,6 +113,7 @@ def check_market():
             color = "\033[91m" if price_change >= 0 else "\033[94m"
             reset = "\033[0m"
             logging.info(f"[{timestamp}] [{coin}] 변화율: {price_change:.2f}% / 거래량 x{volume_change:.2f}")
+            print(f"[{timestamp}] [{coin}] 변화율: {price_change:.2f}% / 거래량 x{volume_change:.2f}")
 
             if price_change >= PRICE_THRESHOLD_PERCENT and volume_change >= VOLUME_THRESHOLD_MULTIPLIER:
                 chart_url = f"https://upbit.com/exchange?code=CRIX.UPBIT.KRW-{coin}"
@@ -120,7 +125,7 @@ def check_market():
                     f"[👉 차트 보기]({chart_url})"
                 )
                 bot.send_message(chat_id=CHAT_ID, text=message, parse_mode='Markdown')
-                logging.info(f"🚨 알림 전송됨: {coin} ({price_change:.2f}% 상승, x{volume_change:.1f} 거래량)")
+                print(f"🚨 알림 전송됨: {coin} ({price_change:.2f}% 상승, x{volume_change:.1f} 거래량)")
 
             # 상태 갱신
             previous_data[coin]['price'] = current_price
@@ -128,6 +133,7 @@ def check_market():
 
         except Exception as e:
             logging.error(f"❌ {coin} 실시간 감시 중 오류: {e}")
+            print(f"❌ {coin} 실시간 감시 중 오류: {e}")
 
         time.sleep(0.2)  # 너무 빠르게 거래량 요청하지 않도록 약간 유지
 
@@ -144,6 +150,7 @@ def check_market_sensitive():
         ticker_data = {item['market'].split('-')[1]: item for item in res.json()}
     except Exception as e:
         logging.error(f"❌ 티커 전체 조회 실패 (민감 버전): {e}")
+        print(f"❌ 티커 전체 조회 실패 (민감 버전): {e}")
         return
 
     for coin in COINS_FIXED:
@@ -167,13 +174,15 @@ def check_market_sensitive():
             prev_volume, current_volume = get_hourly_volumes(coin)
             if not prev_volume or not current_volume:
                 logging.debug(f"🔸 {coin} 거래량 부족 → 스킵")
+                print(f"🔸 {coin} 거래량 부족 → 스킵")
                 continue
 
             volume_change = current_volume / prev_volume if prev_volume > 0 else 0
 
             timestamp = datetime.now().strftime('%H:%M:%S')
             logging.info(f"[민감 {timestamp}] [{coin}] 저점대비 변화율: {price_change:.2f}% / 거래량 x{volume_change:.2f}")
-
+            print(f"[민감 {timestamp}] [{coin}] 저점대비 변화율: {price_change:.2f}% / 거래량 x{volume_change:.2f}")
+            
             if price_change >= 3.0 and volume_change >= 1.5:
                 chart_url = f"https://upbit.com/exchange?code=CRIX.UPBIT.KRW-{coin}"
                 name = COIN_NAMES.get(coin, coin)
@@ -185,15 +194,18 @@ def check_market_sensitive():
                 )
                 bot.send_message(chat_id=CHAT_ID, text=message, parse_mode='Markdown')
                 logging.info(f"🚨 민감 알림 전송됨: {coin} (+{price_change:.2f}%, x{volume_change:.1f})")
+                print(f"🚨 민감 알림 전송됨: {coin} (+{price_change:.2f}%, x{volume_change:.1f})")
 
         except Exception as e:
             logging.error(f"❌ {coin} 민감 감시 오류: {e}")
+            print(f"❌ {coin} 민감 감시 오류: {e}")
         time.sleep(0.2)
 
 
 # 야간 예측 스캔: RSI 및 거래량 변화를 바탕으로 후보 선정
 def nightly_scan():
     logging.info("🌙 야간 예측 스캔 시작")
+    print("🌙 야간 예측 스캔 시작")
     COINS = get_all_krw_symbols()
     url = f"https://api.upbit.com/v1/ticker?markets=" + ','.join([f'KRW-{coin}' for coin in COINS])
     response = requests.get(url).json()
@@ -207,6 +219,7 @@ def nightly_scan():
         avg_volume, current_volume = get_volume_trend(coin, hours=6)
         if not avg_volume or not current_volume:
             logging.info(f"🔸 {coin} 거래량 데이터 부족 → 스킵")
+            print(f"🔸 {coin} 거래량 데이터 부족 → 스킵")
             continue
 
         volume_change = current_volume / avg_volume if avg_volume > 0 else 0
@@ -214,6 +227,7 @@ def nightly_scan():
         prices = get_candle_prices(coin)
         if not prices:
             logging.info(f"🔸 {coin} 캔들 가격 없음 → 스킵")
+            print(f"🔸 {coin} 캔들 가격 없음 → 스킵")
             continue
 
         time.sleep(0.15)
@@ -221,8 +235,10 @@ def nightly_scan():
 
         if rsi is not None:
             logging.info(f"🔍 {coin} | RSI: {rsi} | 거래량 x{volume_change:.2f}")
+            print(f"🔍 {coin} | RSI: {rsi} | 거래량 x{volume_change:.2f}")
         else:
             logging.info(f"🔸 {coin} RSI 계산 실패 → 스킵")
+            print(f"🔸 {coin} RSI 계산 실패 → 스킵")
 
         if 35 < rsi < 55 and volume_change > 1.5:
             night_candidates[coin] = {
@@ -234,6 +250,7 @@ def nightly_scan():
             message_lines.append(line)
             save_night_candidate_to_csv(coin, rsi, volume_change, price)
             logging.info(f"🕵️‍♂️ 후보 등록: {coin} | RSI: {rsi} | 거래량 x{volume_change:.2f}")
+            print(f"🕵️‍♂️ 후보 등록: {coin} | RSI: {rsi} | 거래량 x{volume_change:.2f}")
 
     if len(message_lines) > 1:
         message_lines.append("\n🕐 내일 아침 급등 가능성 있는 후보입니다.")
@@ -244,6 +261,7 @@ def nightly_scan():
 # 아침 후보 검증: 전날 선정된 후보의 아침 결과를 확인 및 알림
 def morning_check():
     logging.info("🌅 아침 후보 검증 시작")
+    print("🌅 아침 후보 검증 시작")
 
     if not night_candidates:
         bot.send_message(chat_id=CHAT_ID, text="🌅 아침 후보가 없습니다.")
@@ -283,6 +301,7 @@ def morning_check():
             bot.send_message(chat_id=CHAT_ID, text=alert, parse_mode='Markdown')
             
             logging.info(f"☀️ 아침 알림 전송됨: {coin} +{rise:.2f}%")
+            print(f"☀️ 아침 알림 전송됨: {coin} +{rise:.2f}%")
             found_risers = True
 
     # 요약 결과 전송

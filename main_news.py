@@ -46,7 +46,7 @@ def fetch_crypto_panic_news():
         res.raise_for_status()
         return res.json().get("results", [])
     except Exception as e:
-        print(f"❌ 뉴스 가져오기 실패: {e}")
+        print(f"❌ 뉴스 가져오기 실패: {e}", flush=True)
         return []
 
 # CryptoPanic API 응답에서 코인 심볼 저장
@@ -62,6 +62,10 @@ def send_batched_news_alert():
     for idx, news in enumerate(fetch_crypto_panic_news()[:10], start=1):
         title = news['title']
         url = news['url']
+
+        if not url:
+            print(f"⚠️ URL 없는 뉴스 발견 (title: {title}) → 스킵", flush=True)
+            continue
 
         news_id = hashlib.md5((title + url).encode("utf-8")).hexdigest()
         if news_id in sent_cache:
@@ -87,17 +91,17 @@ def send_batched_news_alert():
         time.sleep(0.2)
 
     if new_sent:
-        print("\n".join(message_lines))
+        print("\n".join(message_lines), flush=True)
         bot.send_message(chat_id=CHAT_ID, text="\n".join(message_lines))
         save_sent_cache(sent_cache)
-        print("✅ 뉴스 요약 알림 전송됨")
+        print("✅ 뉴스 요약 알림 전송됨", flush=True)
     else:
         print("🔸 새 뉴스 없음")
 
 # 실행 스케줄 등록
 schedule.every(NEWS_TIME).minutes.do(send_batched_news_alert)
 
-print(f"CryptoPanic 뉴스 감시 시작됨 ({NEWS_TIME}분)")
+print(f"CryptoPanic 뉴스 감시 시작됨 ({NEWS_TIME}분)", flush=True)
 
 # 메인 루프
 while True:

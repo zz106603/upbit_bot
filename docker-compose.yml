@@ -2,20 +2,29 @@ services:
   alert:
     build: .
     command: ["python", "-u", "main_alert.py"]
+    tty: true
     env_file: .env
+    environment:
+      - PYTHONUNBUFFERED=1
     volumes:
       - ./upbit_logs:/app/upbit_logs
 
   news:
     build: .
     command: ["python", "-u", "main_news.py"]
+    tty: true
     env_file: .env
+    environment:
+      - PYTHONUNBUFFERED=1
     volumes:
       - ./upbit_logs:/app/upbit_logs
 
   swing:
     build: .
     command: ["python", "-u", "main_swing.py"]
+    tty: true
     env_file: .env
+    environment:
+      - PYTHONUNBUFFERED=1
     volumes:
       - ./upbit_logs:/app/upbit_logs

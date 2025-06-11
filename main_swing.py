@@ -127,7 +127,7 @@ def analyze_completed_positions():
 # 스윙 스캔 함수
 # 지표 기반 조건 만족 시 추천 리스트에 추가
 def swing_scan():
-    print("\n📈 스윙 스캔 시작")
+    print("\n📈 스윙 스캔 시작", flush=True)
     symbols = get_all_krw_symbols()
     message_lines = ["📈 [스윙 후보 리스트]"]
     strong_lines = ["🔥 [이틀 연속 스윙 조건 만족]"]
@@ -151,7 +151,7 @@ def swing_scan():
         drawdown = calculate_drawdown(closes)
 
         if rsi is None or macd is None or signal is None or ma20 is None:
-            print(f"[{coin}] ❌ 지표 계산 실패 → 건너뜀")
+            print(f"[{coin}] ❌ 지표 계산 실패 → 건너뜀", flush=True)
             continue
 
         # 조건: RSI < 45, MACD > Signal, 거래량 급등, MA20 상회, 낙폭 -5% 이상
@@ -161,13 +161,13 @@ def swing_scan():
             save_swing_position(coin, current_price)
             line = f"- {coin} | RSI: {rsi:.2f} | MACD: {macd:.4f} > SIG: {signal:.4f} | 거래량 x{vol_ratio:.2f} | 낙폭: {drawdown:.2f}%"
             message_lines.append(line)
-            print(f"✅ 후보: {line}")
+            print(f"✅ 후보: {line}", flush=True)
 
             if coin in prev_day_set:
                 strong_found = True
                 strong_lines.append(f"✅ {coin} → 이틀 연속 조건 만족")
         else:
-            print(f"[{coin}] 조건 불충족 → 스킵 (RSI: {rsi:.2f}, MACD: {macd:.4f}, Signal: {signal:.4f}, Vol: {vol_ratio:.2f}, DD: {drawdown:.2f})")
+            print(f"[{coin}] 조건 불충족 → 스킵 (RSI: {rsi:.2f}, MACD: {macd:.4f}, Signal: {signal:.4f}, Vol: {vol_ratio:.2f}, DD: {drawdown:.2f})", flush=True)
 
 
         time.sleep(0.2)
@@ -185,7 +185,7 @@ schedule.every().day.at(SWING_SCAN_TIME).do(swing_scan)
 schedule.every().day.at(SWING_POSITION_TIME).do(update_swing_positions)
 schedule.every().day.at(ANALYZE_POSITION_TIME).do(analyze_completed_positions)
 
-print("🟢 스윙 봇 실행됨 (스캔: 09:05 / 추적: 09:07 / 분석: 09:10)")
+print("🟢 스윙 봇 실행됨 (스캔: 09:05 / 추적: 09:07 / 분석: 09:10)", flush=True)
 while True:
     schedule.run_pending()
     time.sleep(1)
