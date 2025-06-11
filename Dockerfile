@@ -1,6 +1,12 @@
 # Python 이미지 사용
 FROM python:3.10-slim
 
+ENV TZ=Asia/Seoul
+
+RUN apt-get update && apt-get install -y tzdata && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
+    apt-get clean
+
 # 작업 디렉터리 설정
 WORKDIR /app
 
