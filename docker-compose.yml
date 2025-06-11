@@ -1,0 +1,21 @@
+services:
+  alert:
+    build: .
+    command: ["python", "-u", "main_alert.py"]
+    env_file: .env
+    volumes:
+      - ./upbit_logs:/app/upbit_logs
+
+  news:
+    build: .
+    command: ["python", "-u", "main_news.py"]
+    env_file: .env
+    volumes:
+      - ./upbit_logs:/app/upbit_logs
+
+  swing:
+    build: .
+    command: ["python", "-u", "main_swing.py"]
+    env_file: .env
+    volumes:
+      - ./upbit_logs:/app/upbit_logs
