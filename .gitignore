@@ -176,3 +176,5 @@ cython_debug/
 upbit_logs
 
 .idea/
+
+crypto_news_sent.json
